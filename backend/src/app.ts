@@ -7,7 +7,7 @@ import logger from './config/logger';
 const app = express();
 
 app.use(cors({
-  origin: 'https://pitchperfect-ai-9527ae61ca93.herokuapp.com/',
+  origin: 'https://pitchperfect-ai.netlify.app/',
   methods: ['GET', 'POST', 'DELETE', 'PUT'],
   credentials: true
 }));

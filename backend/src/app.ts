@@ -8,8 +8,7 @@ const app = express();
 
 app.use(cors({
   origin: config.frontendUrl,
-  methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
-  credentials: true
+  methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS']
 }));
 
 app.use(express.json());

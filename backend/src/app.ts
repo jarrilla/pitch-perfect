@@ -8,7 +8,7 @@ const app = express();
 
 app.use(cors({
   origin: 'https://pitchperfect-ai.netlify.app/',
-  methods: ['GET', 'POST', 'DELETE', 'PUT'],
+  methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
   credentials: true
 }));
 

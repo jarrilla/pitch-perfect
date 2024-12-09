@@ -7,7 +7,7 @@
     "dev": "nodemon src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "heroku-postbuild": "yarn build"
+    "postinstall": "yarn build"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -26,5 +26,9 @@
     "remove-markdown": "^0.5.5",
     "uuid": "^11.0.3",
     "winston": "^3.17.0"
+  },
+  "packageManager": "yarn@1.22.22",
+  "engines": {
+    "node": "23.x"
   }
 }

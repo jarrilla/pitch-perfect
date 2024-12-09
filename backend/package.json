@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/app.ts",
     "build": "tsc",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "heroku-postbuild": "yarn build"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

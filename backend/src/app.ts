@@ -7,7 +7,7 @@ import logger from './config/logger';
 const app = express();
 
 app.use(cors({
-  origin: 'https://pitchperfect-ai.netlify.app/',
+  origin: config.frontendUrl,
   methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS'],
   credentials: true
 }));

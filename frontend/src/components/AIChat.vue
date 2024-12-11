@@ -16,6 +16,7 @@ type SpeechRecognition = {
   interimResults: boolean
   onresult: (event: SpeechRecognitionEvent) => void
   onend: () => void
+  onerror: (event: any) => void
   start: () => void
   stop: () => void
 }
@@ -44,14 +45,24 @@ const startListening = () => {
     recognition.value.interimResults = true
     
     ;(recognition.value as SpeechRecognition).onresult = (event: SpeechRecognitionEvent) => {
-      const current = event.resultIndex
-      transcript.value = event.results[current][0].transcript
+      let finalTranscript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript;
+        }
+      }
+      transcript.value = finalTranscript;
     }
 
     if (recognition.value) {
       recognition.value.onend = () => {
         isListening.value = false
       }
+    }
+
+    recognition.value.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      isListening.value = false;
     }
   }
 

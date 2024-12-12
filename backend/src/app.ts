@@ -9,6 +9,7 @@ import authRoutes from './auth/google'
 import { connectDB } from './config/database'
 
 const app = express()
+app.set('trust proxy', 1);
 
 // Connect to MongoDB
 connectDB().catch(console.error)

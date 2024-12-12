@@ -34,7 +34,6 @@ router.beforeEach(async (to: RouteLocationNormalized) => {
       // If auth check passes, allow navigation to continue
       return true
     } catch (error) {
-      console.error('Auth check failed:', error)
       return { name: 'home' }
     }
   }

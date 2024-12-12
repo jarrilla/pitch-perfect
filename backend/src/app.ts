@@ -29,6 +29,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET!,
   resave: false,
   saveUninitialized: false,
+  name: 'sessionId',
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,

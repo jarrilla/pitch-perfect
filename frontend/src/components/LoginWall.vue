@@ -12,9 +12,7 @@ const handleGoogleLogin = () => {
 
 onMounted(async () => {
   try {
-    const response = await api.get('/auth/check', {
-      withCredentials: true
-    })
+    const response = await api.get('/auth/check');
     if (response.status === 200) {
       router.push('/chat')
     }

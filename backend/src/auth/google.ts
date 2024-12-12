@@ -3,6 +3,12 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { Router } from 'express'
 import { User } from '../models/User'
 
+declare module 'express-session' {
+  interface SessionData {
+    passport: any;
+  }
+}
+
 const router = Router()
 
 passport.use(new GoogleStrategy({
@@ -10,7 +16,7 @@ passport.use(new GoogleStrategy({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     callbackURL: "/auth/google/callback"
   },
-  async (accessToken, refreshToken, profile, done) => {
+  async (_accessToken, _refreshToken, profile, done) => {
     try {
       // Find existing user
       let user = await User.findOne({ googleId: profile.id })
@@ -37,42 +43,88 @@ passport.use(new GoogleStrategy({
 
 // Update serialization to use MongoDB _id
 passport.serializeUser((user: any, done) => {
-  console.log("serializing user", user)
-  done(null, user._id)
+  console.log("Serializing user:", {
+    id: user._id,
+    email: user.email,
+    googleId: user.googleId
+  });
+  done(null, user._id);
 })
 
 passport.deserializeUser(async (id: string, done) => {
-  console.log("deserializing user", id)
+  console.log("Attempting to deserialize user with id:", id);
   try {
-    const user = await User.findById(id)
-    done(null, user)
+    const user = await User.findById(id);
+    console.log("Deserialized user:", user ? {
+      id: user._id,
+      email: user.email,
+      googleId: user.googleId
+    } : 'User not found');
+    done(null, user);
   } catch (error) {
-    done(error)
+    console.error("Deserialize error:", error);
+    done(error);
   }
-})
+});
 
 router.get('/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })
 )
 
 router.get('/google/callback',
-  passport.authenticate('google', { 
-    failureRedirect: `${process.env.FRONTEND_URL}/`,
-    successRedirect: `${process.env.FRONTEND_URL}/chat`
-  })
-)
+  (req, res, next) => {
+    console.log('Starting authentication...');
+    next();
+  },
+  passport.authenticate('google', { failureRedirect: `${process.env.FRONTEND_URL}/` }),
+  (req, res) => {
+    console.log('Authentication successful');
+    console.log('Session before save:', {
+      id: req.sessionID,
+      passport: req.session?.passport,
+      user: req.user
+    });
+    
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${process.env.FRONTEND_URL}/`);
+      }
+      console.log('Session saved successfully');
+      console.log('Final session state:', {
+        id: req.sessionID,
+        passport: req.session?.passport,
+        user: req.user
+      });
+      res.redirect(`${process.env.FRONTEND_URL}/chat`);
+    });
+  }
+);
 
 router.get('/check', (req, res) => {
-
-  console.log("req.user", req.user);
-  console.log(req.isAuthenticated())
+  console.log("Session state during check:", {
+    id: req.sessionID,
+    passport: req.session?.passport,
+    user: req.user
+  });
+  console.log("Is authenticated:", req.isAuthenticated());
 
   if (req.isAuthenticated()) {
-    res.status(200).json({ authenticated: true })
+    res.status(200).json({ authenticated: true });
   } else {
-    res.status(401).json({ authenticated: false })
+    res.status(401).json({ authenticated: false });
   }
-})
+});
+
+router.get('/session-check', (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    session: req.session,
+    user: req.user,
+    isAuthenticated: req.isAuthenticated(),
+    cookies: req.cookies
+  });
+});
 
 router.post('/logout', (req, res) => {
   req.logout(() => {

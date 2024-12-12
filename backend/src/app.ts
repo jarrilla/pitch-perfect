@@ -17,6 +17,12 @@ connectDB().catch(console.error)
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+// CORS configuration must come BEFORE session middleware
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true,
+}))
+
 // Session configuration before CORS
 app.use(session({
   secret: process.env.SESSION_SECRET!,
@@ -24,25 +30,28 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'none',
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000
   }
 }))
 
-// CORS configuration
-app.use(cors({
-  origin: config.frontendUrl,
-  credentials: true,
-  methods: ['GET', 'POST', 'DELETE', 'PUT', 'OPTIONS']
-}))
-
-// Passport middleware
+// Passport middleware must come AFTER session middleware
 app.use(passport.initialize())
 app.use(passport.session())
 
 // Routes
 app.use('/auth', authRoutes)
 app.use('/chat', chatRoutes)
+
+app.get('/test-cookie', (req, res) => {
+  res.cookie('test-cookie', 'hello', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });
+  res.json({ message: 'Cookie set!' });
+});
 
 app.listen(config.port, () => {
   logger.info(`Server running on port ${config.port}`)

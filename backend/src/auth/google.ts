@@ -64,6 +64,7 @@ router.get('/google/callback',
 
 router.get('/check', (req, res) => {
 
+  console.log("req.user", req.user);
   console.log(req.isAuthenticated())
 
   if (req.isAuthenticated()) {

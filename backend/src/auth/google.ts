@@ -37,10 +37,12 @@ passport.use(new GoogleStrategy({
 
 // Update serialization to use MongoDB _id
 passport.serializeUser((user: any, done) => {
+  console.log("serializing user", user)
   done(null, user.id)
 })
 
 passport.deserializeUser(async (id: string, done) => {
+  console.log("deserializing user", id)
   try {
     const user = await User.findById(id)
     done(null, user)

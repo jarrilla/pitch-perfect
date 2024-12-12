@@ -27,7 +27,7 @@ app.use(cors({
 // Session configuration before CORS
 app.use(session({
   secret: process.env.SESSION_SECRET!,
-  resave: false,
+  resave: true,
   saveUninitialized: false,
   name: 'sessionId',
   cookie: {

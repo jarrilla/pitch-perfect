@@ -71,30 +71,14 @@ const startListening = () => {
 }
 
 const stopListening = async () => {
-  if (!recognition.value) {
-    console.error('Speech recognition not initialized');
-    return;
-  }
-
-  const p = new Promise((resolve, _reject) => {
-    recognition.value!.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = '';
-      for (const result of event.results) {
-        if (result.isFinal) finalTranscript += result[0].transcript;
-      }
-
-      transcript.value = finalTranscript;
-      resolve(finalTranscript);
-      recognition.value!.stop();
-    };
-  });
-
-  await p;
-  isListening.value = false;
-
-  if (transcript.value) {
-    await sendMessage(transcript.value);
-    transcript.value = '';
+  if (recognition.value) {
+    recognition.value.stop()
+    isListening.value = false
+    
+    if (transcript.value) {
+      await sendMessage(transcript.value)
+      transcript.value = ''
+    }
   }
 }
 

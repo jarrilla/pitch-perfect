@@ -6,8 +6,8 @@ interface ChatResponse {
 }
 
 export const chatApi = {
-  async startSession(): Promise<ChatResponse> {
-    const { data } = await api.put('/chat');
+  async startSession(assistantMode: 'sales' | 'investor' | 'coach'): Promise<ChatResponse> {
+    const { data } = await api.put('/chat', { assistantMode });
     return data;
   },
 

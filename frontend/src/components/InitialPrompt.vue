@@ -1,80 +1,63 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { chatApi } from '../services/chatApi'
 import Spinner from './Spinner.vue'
+
 const emit = defineEmits<{
   'session-started': [sessionId: string]
 }>()
 
 const isLoading = ref(false)
-const isAiReady = ref(false)
-const aiResponse = ref('')
-const userInput = ref('')
 const sessionId = ref<string | null>(null)
 
-onMounted(async () => {
+type PitchType = 'sales' | 'investor' | 'coach'
+
+const handleSelection = async (type: PitchType) => {
   try {
     isLoading.value = true
-    const { message, sessionId: newSessionId } = await chatApi.startSession()
+    const { sessionId: newSessionId } = await chatApi.startSession(type)
     sessionId.value = newSessionId
-    aiResponse.value = message
-    isAiReady.value = true
+    emit('session-started', newSessionId)
   } catch (error) {
     console.error('Error starting session:', error)
-    aiResponse.value = 'Sorry, there was an error starting the chat session.'
-    isAiReady.value = false
   } finally {
     isLoading.value = false
-  }
-})
-
-const handleSubmit = async () => {
-  if (userInput.value.trim() && sessionId.value) {
-    try {
-      isLoading.value = true
-      await chatApi.setupProfile(userInput.value, sessionId.value)
-      emit('session-started', sessionId.value)
-    } catch (error) {
-      console.error('Error setting up profile:', error)
-      aiResponse.value = 'Sorry, there was an error processing your profile.'
-      isAiReady.value = false
-    } finally {
-      isLoading.value = false
-    }
   }
 }
 </script>
 
 <template>
   <div class="initial-prompt-container">
-    <div
-      v-if="isLoading"
-      class="spinner-wrapper"
-    >
+    <div v-if="isLoading" class="spinner-wrapper">
       <Spinner />
     </div>
     
-    <div v-if="!isLoading && !isAiReady" class="error-message">
-      {{ aiResponse }}
-    </div>
-    
-    <div v-if="!isLoading && isAiReady" class="prompt-content">
+    <div v-else class="prompt-content">
+      <h1>Choose Your Conversation Type</h1>
       
-      <div class="success-message">
-        Before we begin, please use the field below to provide the links to the social media profiles you'd like to simulate a pitch with.
-      </div>
-
-      <div class="input-section">
-        <textarea 
-          v-model="userInput"
-          rows="3"
-        ></textarea>
+      <div class="button-grid">
+        <button 
+          class="conversation-btn sales"
+          @click="handleSelection('sales')"
+        >
+          <span class="btn-title">Sales Pitch</span>
+          <span class="btn-desc">Practice your product or service pitch</span>
+        </button>
         
         <button 
-          @click="handleSubmit"
-          :disabled="!userInput.trim()"
+          class="conversation-btn investor"
+          @click="handleSelection('investor')"
         >
-          Submit
+          <span class="btn-title">Investor Pitch</span>
+          <span class="btn-desc">Refine your startup pitch</span>
+        </button>
+        
+        <button 
+          class="conversation-btn coach"
+          @click="handleSelection('coach')"
+        >
+          <span class="btn-title">Idea Coach</span>
+          <span class="btn-desc">Develop and validate your ideas</span>
         </button>
       </div>
     </div>
@@ -83,7 +66,7 @@ const handleSubmit = async () => {
 
 <style scoped>
 .initial-prompt-container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 2rem auto;
   padding: 1rem;
 }
@@ -92,83 +75,61 @@ const handleSubmit = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
+  height: 400px;
 }
 
-.error-message {
-  border: 2px solid red;
-  border-radius: 4px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  color: white;
-  background-color: red;
-  padding: 0.75rem;
-  font-size: 20px;
-}
-
-.success-message {
-  border: 2px solid #c5dbc4;
-  border-radius: 4px;
-  box-shadow: 5px 5px 15px gray;
-  color: gray;
-  background-color: #c5dbc4;
-  padding: 0.75rem;
-  font-size: 20px;
-  user-select: none;
-}
-
-.loading {
+h1 {
   text-align: center;
+  color: #333;
+  margin-bottom: 2rem;
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.conversation-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  border: none;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-align: center;
+  min-height: 120px;
+}
+
+.conversation-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.btn-desc {
+  font-size: 0.9rem;
   color: #666;
 }
 
-.prompt-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
+.sales { background: linear-gradient(135deg, #e3f2fd, #bbdefb); }
+.investor { background: linear-gradient(135deg, #f3e5f5, #e1bee7); }
+.coach { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); }
 
-.ai-message {
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 8px;
-  line-height: 1.5;
-}
-
-.input-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  resize: vertical;
-}
-
-button {
-  padding: 0.75rem 1.5rem;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-button:hover {
-  background: #0056b3;
-}
-
-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+@media (min-width: 640px) {
+  .button-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 </style>

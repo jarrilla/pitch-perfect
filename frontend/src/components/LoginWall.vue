@@ -7,7 +7,7 @@ const router = useRouter()
 const isLoading = ref(true)
 
 const handleGoogleLogin = () => {
-  window.location.href = `${import.meta.env.VITE_API_BASE_URL}/auth/google`
+  window.location.replace(`${import.meta.env.VITE_API_BASE_URL}/auth/google`)
 }
 
 onMounted(async () => {

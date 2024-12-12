@@ -25,9 +25,14 @@ const router = createRouter({
 router.beforeEach(async (to: RouteLocationNormalized) => {
   if (to.meta.requiresAuth) {
     try {
-      await api.get('/auth/check', {
+      const response = await api.get('/auth/check', {
         withCredentials: true
       })
+      if (response.status !== 200) {
+        return { name: 'home' }
+      }
+      // If auth check passes, allow navigation to continue
+      return true
     } catch (error) {
       console.error('Auth check failed:', error)
       return { name: 'home' }

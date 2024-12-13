@@ -4,8 +4,7 @@ import { Router } from 'express';
 import { User } from '../models/User';
 import logger from '../config/logger';
 
-export {};
-
+// Use this to merge the User interface with the Express.User interface
 declare global {
   namespace Express {
     interface User {

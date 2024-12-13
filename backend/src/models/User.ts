@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose'
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
   googleId: string
@@ -13,7 +13,7 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true },
   displayName: { type: String, required: true },
   createdOn: { type: Date, default: Date.now },
-  lastLogin: { type: Date, default: Date.now }
-})
+  lastLogin: { type: Date, default: Date.now },
+});
 
-export const User = mongoose.model<IUser>('User', UserSchema)
+export const User = mongoose.model<IUser>('User', UserSchema);

@@ -1,30 +1,49 @@
-import eslint from '@eslint/js';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
+/** @type {import('eslint').Linter.Config[]} */
 export default [
-  eslint.configs.recommended,
   {
-    files: ['**/*.ts'],
-    languageOptions: {
-      parser: tsparser,
-      ecmaVersion: 2020,
-      sourceType: 'module',
-    },
-    plugins: {
-      '@typescript-eslint': tseslint,
-    },
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      'coverage/**',
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      'eslint.config.js',
+    ],
+  },
+  {
+    files: ['**/*.{js,mjs,cjs,ts}'],
     rules: {
-      // Add custom rules here
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-unused-vars': ['warn', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_'
-      }],
+      'semi': ['error', 'always'],
+      'quotes': ['error', 'single'],
+      'indent': ['error', 2],
+      'no-unused-vars': 'error',
+      'no-console': 'warn',
+      'comma-dangle': ['error', 'always-multiline'],
+      'object-curly-spacing': ['error', 'always'],
     },
   },
   {
-    ignores: ['node_modules/**', 'dist/**', 'build/**'],
+    files: ['**/*.ts'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        project: './tsconfig.json',
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tseslint.plugin
+    },
+    rules: {
+      '@typescript-eslint/no-namespace': 'off',
+      ...tseslint.configs.recommended.rules,
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['error'],
+    },
+  },
+  {
+    languageOptions: { globals: globals.node },
   },
 ];

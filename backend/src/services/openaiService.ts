@@ -17,7 +17,7 @@ export const generateAIResponse = async (messages: ChatMessage[]) => {
     logger.info('Generating AI response', { messages });
     const completion = await openai.chat.completions.create({
       messages,
-      model: "gpt-4o",
+      model: 'gpt-4o',
     });
 
     const response = completion.choices[0].message.content;

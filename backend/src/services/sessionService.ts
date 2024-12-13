@@ -29,5 +29,5 @@ export const sessionService = {
   endSession: (sessionId: string) => {
     logger.info('Ending session', { sessionId });
     return sessions.delete(sessionId);
-  }
+  },
 }; 

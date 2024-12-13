@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { generateAIResponse } from '../services/openaiService';
+import logger from '../config/logger';
 
 const CHALLENGE_PROMPT = `I want you to challenge my views so we can arrive at a solid conclusion.
 Do not make it easy for me.
@@ -19,21 +20,21 @@ export const handleChatRequest = async (req: Request, res: Response) => {
     res.json({ reply });
     
   } catch (error) {
-    console.error('OpenAI API error:', error);
+    logger.error('OpenAI API error:', error);
     res.status(500).json({ error: 'Failed to get AI response' });
   }
 };
 
 export const GenerateInitialPrompt = (assistantMode: string) => {
-  let initialPrompt = "";
+  let initialPrompt = '';
 
   if (assistantMode === 'sales') {
-    initialPrompt = "You are a buyer at a prospect's company. My goal is to sell my service or product to your company.";
+    initialPrompt = 'You are a buyer at a prospect\'s company. My goal is to sell my service or product to your company.';
   } else if (assistantMode === 'investor') {
-    initialPrompt = "You are an investor. My goal is to convince you to invest in my company or idea.";
+    initialPrompt = 'You are an investor. My goal is to convince you to invest in my company or idea.';
   } else if (assistantMode === 'coach') {
-    initialPrompt = "You are a helpful coach. I need your help refining my idea.";
+    initialPrompt = 'You are a helpful coach. I need your help refining my idea.';
   }
 
   return initialPrompt + CHALLENGE_PROMPT;
-}
+};

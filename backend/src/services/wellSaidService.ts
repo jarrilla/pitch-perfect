@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { config } from '../config/env';
+import logger from '../config/logger';
 
 const WELLSAID_API_URL = 'https://api.wellsaidlabs.com/v1/tts/stream';
 
@@ -21,7 +22,7 @@ export async function TextToSpeech(text: string): Promise<Buffer> {
 
     return Buffer.from(response.data);
   } catch (error) {
-    console.error('WellSaid TTS error:', error);
+    logger.error('WellSaid TTS error:', error);
     throw error;
   }
 }

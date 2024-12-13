@@ -1,14 +1,32 @@
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue'
-import Speaking from './Speaking.vue'
+import Speaking from './AISpeaking.vue'
 import { chatApi } from '../services/chatApi'
 
 declare global {
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
   }
-  type SpeechRecognitionEvent = any;
+}
+
+interface SpeechRecognitionEvent {
+  results: Array<SpeechRecognitionResult>;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+}
+
+interface SpeechRecognitionErrorEvent {
+  error: string;
+  message?: string;
 }
 
 type SpeechRecognition = {
@@ -16,7 +34,7 @@ type SpeechRecognition = {
   interimResults: boolean
   onresult: (event: SpeechRecognitionEvent) => void
   onend: () => void
-  onerror: (event: any) => void
+  onerror: (event: SpeechRecognitionErrorEvent) => void
   start: () => void
   stop: () => void
 }
@@ -60,7 +78,7 @@ const startListening = () => {
       }
     }
 
-    recognition.value.onerror = (event: any) => {
+    recognition.value.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       isListening.value = false;
     }

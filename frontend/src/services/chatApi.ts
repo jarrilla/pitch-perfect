@@ -1,4 +1,4 @@
-import { api } from './axios'
+import { api } from './axios';
 
 interface ChatResponse {
   message: string;
@@ -15,11 +15,11 @@ export const chatApi = {
     const { data } = await api.post('/chat', 
       {
         message,
-        sessionId
+        sessionId,
       },
       {
-        responseType: 'arraybuffer'  // Important for receiving binary data
-      }
+        responseType: 'arraybuffer',  // Important for receiving binary data
+      },
     );
     return data;
   },
@@ -31,9 +31,9 @@ export const chatApi = {
   async setupProfile(link: string, sessionId: string): Promise<ChatResponse> {
     const { data } = await api.post('/chat/profile', {
       link,
-      sessionId
+      sessionId,
     });
     
     return data;
-  }
+  },
 }; 

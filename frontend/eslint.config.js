@@ -1,9 +1,12 @@
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import pluginVue from 'eslint-plugin-vue';
+
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
+    files: ['**/*.{js,mjs,cjs,ts,vue}'],
     ignores: [
       'node_modules/**',
       'dist/**',
@@ -26,24 +29,12 @@ export default [
     },
   },
   {
-    files: ['**/*.ts'],
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        project: './tsconfig.json',
-      },
-    },
-    plugins: {
-      '@typescript-eslint': tseslint.plugin
-    },
-    rules: {
-      '@typescript-eslint/no-namespace': 'off',
-      ...tseslint.configs.recommended.rules,
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error'],
-    },
+    languageOptions: { globals: globals.browser },
   },
+  ...tseslint.configs.recommended,
+  ...pluginVue.configs['flat/essential'],
   {
-    languageOptions: { globals: globals.node },
+    files: ['**/*.vue'],
+    languageOptions: { parserOptions: { parser: tseslint.parser } },
   },
 ];

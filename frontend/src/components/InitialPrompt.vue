@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { chatApi } from '../services/chatApi'
-import Spinner from './Spinner.vue'
+import Spinner from './LoadingSpinner.vue'
 
 const emit = defineEmits<{
   'session-started': [sessionId: string]

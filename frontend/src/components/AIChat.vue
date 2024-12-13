@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, onMounted } from 'vue'
 import Speaking from './AISpeaking.vue'
 import { chatApi } from '../services/chatApi'
 
@@ -55,6 +55,9 @@ const recognition = ref<SpeechRecognition | null>(null)
 const isLoading = ref(false)
 const sessionId = ref(props.sessionId)
 const isAudioPlaying = ref(false)
+const lastSpeechTime = ref(Date.now())
+const silenceTimer = ref<number | null>(null)
+const SILENCE_DURATION = 750 // 750ms of silence
 
 const startListening = () => {
   if (!recognition.value) {
@@ -62,25 +65,40 @@ const startListening = () => {
     recognition.value.continuous = true
     recognition.value.interimResults = true
     
-    ;(recognition.value as SpeechRecognition).onresult = (event: SpeechRecognitionEvent) => {
+    recognition.value.onresult = (event: SpeechRecognitionEvent) => {
       let finalTranscript = '';
       for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           finalTranscript += event.results[i][0].transcript;
         }
       }
-      transcript.value = finalTranscript;
-    }
-
-    if (recognition.value) {
-      recognition.value.onend = () => {
-        isListening.value = false
+      
+      if (finalTranscript) {
+        transcript.value = finalTranscript;
+        lastSpeechTime.value = Date.now();
+        
+        // Reset silence timer
+        if (silenceTimer.value) {
+          clearTimeout(silenceTimer.value);
+        }
+        
+        // Start new silence timer
+        silenceTimer.value = setTimeout(async () => {
+          if (transcript.value) {
+            await sendMessage(transcript.value);
+            transcript.value = '';
+          }
+        }, SILENCE_DURATION);
       }
     }
 
-    recognition.value.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Speech recognition error:', event.error);
-      isListening.value = false;
+    recognition.value.onend = () => {
+      // Restart if we're supposed to be listening
+      if (isListening.value) {
+        setTimeout(() => {
+          recognition.value?.start();
+        }, 10);
+      }
     }
   }
 
@@ -88,28 +106,14 @@ const startListening = () => {
   isListening.value = true
 }
 
-const stopListening = async () => {
-  if (recognition.value) {
-    recognition.value.stop()
-    isListening.value = false
-    
-    if (transcript.value) {
-      await sendMessage(transcript.value)
-      transcript.value = ''
-    }
-  }
-}
-
-const toggleListening = () => {
-  if (isListening.value) {
-    stopListening()
-  } else {
-    startListening()
-  }
-}
-
 const sendMessage = async (text: string) => {
   try {
+    // Stop and reset recognition
+    if (recognition.value) {
+      recognition.value.stop()
+      recognition.value = null
+    }
+
     const userMessage: ChatMessage = {
       type: 'user',
       content: text,
@@ -130,6 +134,9 @@ const sendMessage = async (text: string) => {
       if (data.done) {
         eventSource.close();
         chatMessages.value.push(aiMessage);
+        transcript.value = '';
+        // Restart recognition after response
+        startListening();
         return;
       }
 
@@ -138,6 +145,7 @@ const sendMessage = async (text: string) => {
 
     eventSource.onerror = () => {
       eventSource.close()
+      startListening() // Ensure we restart on error too
     }
 
   } catch (error) {
@@ -146,54 +154,40 @@ const sendMessage = async (text: string) => {
       type: 'ai',
       content: 'Sorry, there was an error processing your request.'
     })
+    startListening() // Ensure we restart on error
   }
 }
 
-onUnmounted(async () => {
+// Start listening when component mounts
+onMounted(() => {
+  startListening()
+})
+
+// Clean up
+onUnmounted(() => {
+  if (silenceTimer.value) {
+    clearTimeout(silenceTimer.value)
+  }
   if (recognition.value) {
     recognition.value.stop()
-  }
-  
-  if (sessionId.value) {
-    try {
-      await chatApi.endSession(sessionId.value)
-    } catch (error) {
-      console.error('Error ending session:', error)
-    }
   }
 })
 </script>
 
 <template>
-  <div
-    v-if="isAudioPlaying"
-    class="speaking-container"
-  >
-    <Speaking />
-  </div>
-
   <div class="chat-container">
     <div class="chat-messages">
       <div v-for="(message, index) in chatMessages" 
            :key="index" 
            :class="['message', message.type]">
-        <div 
-          class="message-content"
-        >
+        <div class="message-content">
           {{ message.content }}
         </div>
       </div>
     </div>
     
-    <div class="input-container">
-      <button 
-        @click="toggleListening"
-        :class="{ active: isListening }">
-        {{ isListening ? 'Stop Speaking' : 'Start Speaking' }}
-      </button>
-      <div class="transcript" v-if="isListening">
-        {{ transcript }}
-      </div>
+    <div class="transcript" v-if="transcript">
+      {{ transcript }}
     </div>
   </div>
 </template>

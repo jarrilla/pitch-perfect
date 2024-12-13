@@ -1,23 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { chatApi } from '../services/chatApi'
+// import { chatApi } from '../services/chatApi'
 import Spinner from './LoadingSpinner.vue'
 
 const emit = defineEmits<{
-  'session-started': [sessionId: string]
+  (e: 'session-started'): void
 }>()
 
 const isLoading = ref(false)
-const sessionId = ref<string | null>(null)
+// const sessionId = ref<string | null>(null)
 
-type PitchType = 'sales' | 'investor' | 'coach'
+// type PitchType = 'sales' | 'investor' | 'coach'
 
-const handleSelection = async (type: PitchType) => {
+const handleSelection = async () => {
   try {
     isLoading.value = true
-    const { sessionId: newSessionId } = await chatApi.startSession(type)
-    sessionId.value = newSessionId
-    emit('session-started', newSessionId)
+    // const { sessionId: newSessionId } = await chatApi.startSession(type)
+    // sessionId.value = newSessionId
+    emit('session-started')
   } catch (error) {
     console.error('Error starting session:', error)
   } finally {
@@ -38,7 +38,7 @@ const handleSelection = async (type: PitchType) => {
       <div class="button-grid">
         <button 
           class="conversation-btn sales"
-          @click="handleSelection('sales')"
+          @click="handleSelection"
         >
           <span class="btn-title">Sales Pitch</span>
           <span class="btn-desc">Practice your product or service pitch</span>
@@ -46,7 +46,7 @@ const handleSelection = async (type: PitchType) => {
         
         <button 
           class="conversation-btn investor"
-          @click="handleSelection('investor')"
+          @click="handleSelection"
         >
           <span class="btn-title">Investor Pitch</span>
           <span class="btn-desc">Refine your startup pitch</span>
@@ -54,7 +54,7 @@ const handleSelection = async (type: PitchType) => {
         
         <button 
           class="conversation-btn coach"
-          @click="handleSelection('coach')"
+          @click="handleSelection"
         >
           <span class="btn-title">Idea Coach</span>
           <span class="btn-desc">Develop and validate your ideas</span>

@@ -1,78 +1,41 @@
 import { Router, Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import { generateAIResponse } from '../services/openaiService';
-import { sessionService } from '../services/sessionService';
+import { ChatMessage } from '../services/openaiService';
 import logger from '../config/logger';
-import { TextToSpeech } from '../services/wellSaidService';
-import { GenerateInitialPrompt } from '../controllers/chatController';
+import { generateStreamingResponse } from '../services/openaiService';
 
 const router = Router();
 
-router.post('/', async (req: Request, res: Response) => {
+router.get('/stream', async (req: Request, res: Response) => {
   try {
-    const { message, sessionId } = req.body;
-    logger.info('Received chat request', { message, sessionId });
-        
-    const currentSessionId = sessionId || uuidv4();
-    if (!sessionId) {
-      sessionService.createSession(currentSessionId);
+    const message = req.query.message as string;
+    logger.info(`Received message: ${message}`);
+    
+    const messages: ChatMessage[] = [
+      { role: 'user', content: message },
+    ];
+
+    const stream = await generateStreamingResponse(messages);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    res.write(`data: ${JSON.stringify({ content: '' })}\n\n`);
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        res.write(`data: ${JSON.stringify({ content })}\n\n`);
+        // if (res.flush) res.flush();
+      }
     }
 
-    sessionService.addMessage(currentSessionId, { role: 'user', content: message });
-    const sessionMessages = sessionService.getSession(currentSessionId);
-        
-    const aiResponse = await generateAIResponse(sessionMessages || []);
-    sessionService.addMessage(currentSessionId, { role: 'assistant', content: aiResponse! });
-
-    // Generate speech and pipe directly to client
-    const audioBuffer = await TextToSpeech(aiResponse!);
-    res.set({
-      'Content-Type': 'audio/mpeg',
-      'Content-Length': audioBuffer.length,
-    });
-    res.send(audioBuffer);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
   } catch (error) {
-    logger.error('Error processing chat request', { error });
-    res.status(500).json({ error: 'Internal server error' });
+    logger.error('Streaming error:', error);
+    res.status(500).json({ error: 'Streaming failed' });
   }
-});
-
-router.put('/', async (req: Request, res: Response) => {
-  try {
-    const { assistantMode } = req.body;
-    if (!assistantMode) {
-      res.status(400).json({ error: 'Assistant mode is required' });
-      return;
-    }
-
-    const sessionId = uuidv4();
-    logger.info('Starting new chat session', { sessionId });
-        
-    sessionService.createSession(sessionId);
-    const initialPrompt = GenerateInitialPrompt(assistantMode);
-    const aiResponse = await generateAIResponse([
-      { role: 'system', content: initialPrompt },
-    ]);
-        
-    sessionService.addMessage(sessionId, { role: 'system', content: initialPrompt });
-    sessionService.addMessage(sessionId, { role: 'assistant', content: aiResponse! });
-
-    logger.info('Chat session initialized', { sessionId });
-    res.json({
-      message: aiResponse,
-      sessionId,
-    });
-  } catch (error) {
-    logger.error('Error initializing chat session', { error });
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-router.delete('/:sessionId', (req: Request, res: Response) => {
-  const { sessionId } = req.params;
-  logger.info('Ending chat session', { sessionId });
-  sessionService.endSession(sessionId);
-  res.json({ message: 'Session ended' });
 });
 
 export default router;

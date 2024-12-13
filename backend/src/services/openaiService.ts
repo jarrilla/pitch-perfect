@@ -1,4 +1,3 @@
-import removeMd from 'remove-markdown';
 import { OpenAI } from 'openai';
 import { config } from '../config/env';
 import logger from '../config/logger';
@@ -12,16 +11,16 @@ export type ChatMessage = {
   content: string;
 };
 
-export const generateAIResponse = async (messages: ChatMessage[]) => {
+export const generateStreamingResponse = async (messages: ChatMessage[]) => {
   try {
-    logger.info('Generating AI response', { messages });
-    const completion = await openai.chat.completions.create({
+    logger.info('Generating streaming AI response');
+    const stream = await openai.chat.completions.create({
       messages,
       model: 'gpt-4o',
+      stream: true,
     });
 
-    const response = completion.choices[0].message.content;
-    return removeMd(response!);
+    return stream;
   } catch (error) {
     logger.error('Error generating AI response', { error });
     throw error;

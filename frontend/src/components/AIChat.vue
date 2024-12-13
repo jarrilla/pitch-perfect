@@ -110,45 +110,42 @@ const toggleListening = () => {
 
 const sendMessage = async (text: string) => {
   try {
-    isLoading.value = true
-    
     const userMessage: ChatMessage = {
       type: 'user',
       content: text,
     }
     chatMessages.value.push(userMessage)
-    
-    // Get audio response using axios
-    const response = await chatApi.sendMessage(text, sessionId.value)
-    
-    // Create and play audio from the response data
-    const audioBlob = new Blob([response], { type: 'audio/mpeg' })
-    const audioUrl = URL.createObjectURL(audioBlob)
-    const audio = new Audio(audioUrl)
-    
-    isAudioPlaying.value = true
-    audio.onended = () => {
-      isAudioPlaying.value = false
-    }
 
-    await audio.play()
-
+    // Create AI message placeholder
     const aiMessage: ChatMessage = {
       type: 'ai',
-      content: 'Message received',
+      content: '',
     }
-    chatMessages.value.push(aiMessage)
-    
-    // Clean up
-    URL.revokeObjectURL(audioUrl)
+
+    // Start streaming
+    const eventSource = chatApi.streamMessage(text)
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.done) {
+        eventSource.close();
+        chatMessages.value.push(aiMessage);
+        return;
+      }
+
+      aiMessage.content += data.content;
+    }
+
+    eventSource.onerror = () => {
+      eventSource.close()
+    }
+
   } catch (error) {
     console.error('Error:', error)
     chatMessages.value.push({
       type: 'ai',
       content: 'Sorry, there was an error processing your request.'
     })
-  } finally {
-    isLoading.value = false
   }
 }
 

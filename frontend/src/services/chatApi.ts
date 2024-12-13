@@ -36,4 +36,8 @@ export const chatApi = {
     
     return data;
   },
+
+  streamMessage(message: string) {
+    return new EventSource(`${import.meta.env.VITE_API_BASE_URL}/chat/stream?message=${encodeURIComponent(message)}`);
+  },
 }; 

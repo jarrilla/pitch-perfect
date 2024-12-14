@@ -1,114 +1,126 @@
 <script setup lang="ts">
-import { ref, onUnmounted, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { RealtimeClient } from '@openai/realtime-api-beta'
+// @ts-ignore
+import { WavRecorder, WavStreamPlayer } from '../lib/wavtools'
+import { ItemType } from '@openai/realtime-api-beta/dist/lib/client.js';
 
-interface ChatMessage {
-  type: 'user' | 'ai'
-  content: string
+const instructions = `System settings:
+Tool use: enabled.
+
+Instructions:
+- You are an artificial intelligence agent responsible for helping test realtime voice capabilities
+- Please make sure to respond with a helpful voice via audio
+- Be kind, helpful, and curteous
+- It is okay to ask the user questions
+- Use tools and functions you have available liberally, it is part of the training apparatus
+- Be open to exploration and conversation
+- Remember: this is just for fun and testing!
+
+Personality:
+- Be upbeat and genuine
+- Try speaking quickly as if excited
+`;
+
+interface RealtimeEvent {
+  time: string;
+  source: 'client' | 'server';
+  count?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  event: { [key: string]: any };
 }
 
-const chatMessages = ref<ChatMessage[]>([])
-const mediaRecorder = ref<MediaRecorder | null>(null)
-const ws = ref<WebSocket | null>(null)
-const isRecording = ref(false)
+const wavRecorder = ref<WavRecorder | null>(
+  new WavRecorder({ sampleRate: 24000 })
+);
+const wavStreamPlayer = ref<WavStreamPlayer | null>(
+  new WavStreamPlayer({ sampleRate: 24000 })
+);
+const client = ref<RealtimeClient | null>(
+  new RealtimeClient({ url: `${import.meta.env.VITE_API_BASE_URL}/stream` })
+);
 
-const startRecording = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    mediaRecorder.value = new MediaRecorder(stream)
-    
-    ws.value = new WebSocket(`${import.meta.env.VITE_WS_URL}/audio-stream`)
-    
-    ws.value.onmessage = (event) => {
-      const data = JSON.parse(event.data)
-      if (data.content) {
-        chatMessages.value.push({
-          type: 'ai',
-          content: data.content
-        })
-      }
-    }
+const chatItems = ref<ItemType[]>([]);
+const realtimeEvents = ref<RealtimeEvent[]>([]);
 
-    mediaRecorder.value.ondataavailable = (event) => {
-      if (event.data.size > 0 && ws.value?.readyState === WebSocket.OPEN) {
-        ws.value.send(event.data)
-      }
-    }
 
-    mediaRecorder.value.start(100)
-    isRecording.value = true
+onMounted(async () => {
+  client.value = new RealtimeClient({
+    url: `${import.meta.env.VITE_API_BASE_URL}/stream`,
+  });
 
-  } catch (error) {
-    console.error('Error starting recording:', error)
+  await wavRecorder.value.begin();
+  await wavStreamPlayer.value.connect();
+  await client.value.connect();
+
+  // client.value!.sendUserMessageContent([
+  //   {
+  //     type: 'input_text',
+  //     text: 'For testing purposes, I want you to list ten car brands.'
+  //   }
+  // ]);
+
+  if (client.value.getTurnDetectionType() == 'server_vad') {
+    await wavRecorder.value.record((data: any) => client.value?.appendInputAudio(data));
   }
-}
 
-onMounted(() => {
-  startRecording()
-})
+  client.value.updateSession({ instructions });
+  client.value.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
+
+  client.value.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
+    const lastEvent = realtimeEvents.value[realtimeEvents.value.length - 1];
+    if (lastEvent?.event.type === realtimeEvent.event.type) {
+      lastEvent.count = (lastEvent.count || 0) + 1;
+      return realtimeEvents.value.slice(0, -1).concat(lastEvent);
+    } else {
+      realtimeEvents.value.push(realtimeEvent);
+    }
+  });
+  client.value.on('error', (event: any) => console.error(event));
+  client.value.on('conversation.interrupted', async () => {
+    const trackSampleOffset = await wavStreamPlayer.value.interrupt();
+    if (trackSampleOffset?.trackId) {
+      const { trackId, offset } = trackSampleOffset;
+      client.value?.cancelResponse(trackId, offset);
+    }
+  });
+  client.value.on('conversation.updated', async ({ item, delta }: any) => {
+    const items = client.value?.conversation.getItems();
+    if (delta?.audio) {
+      wavStreamPlayer.value.add16BitPCM(delta.audio, item.id);
+    }
+    if (item.status === 'completed' && item.fomatted.audio?.length) {
+      const wavFile = await WavRecorder.decode(
+        item.formatted.audio,
+        24000,
+        24000
+      );
+      item.formatted.audio = wavFile;
+    }
+    chatItems.value = items || [];
+  });
+
+  chatItems.value = client.value.conversation.getItems();
+});
 
 onUnmounted(() => {
-  if (mediaRecorder.value && isRecording.value) {
-    mediaRecorder.value.stop()
-  }
-  if (ws.value) {
-    ws.value.close()
-  }
-})
+
+});
 </script>
 
 <template>
-  <div class="chat-container">
-    <div class="chat-messages">
-      <div v-for="(message, index) in chatMessages" 
-           :key="index" 
-           :class="['message', message.type]">
-        <div class="message-content">
-          {{ message.content }}
-        </div>
+  <div id="chat-room">
+    <div id="chat-messages">
+      <div
+        v-for="message in chatItems"
+        :key="message.id"
+      >
+        {{ message.formatted.text }}
       </div>
     </div>
   </div>
 </template>
 
-<style scoped>
-.chat-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
-  height: 90vh;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
+<style>
 
-.chat-messages {
-  flex-grow: 1;
-  overflow-y: auto;
-  margin-bottom: 20px;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 10px;
-}
-
-.message {
-  margin: 10px 0;
-  padding: 10px 15px;
-  border-radius: 15px;
-  max-width: 70%;
-}
-
-.user {
-  background: #007AFF;
-  color: white;
-  margin-left: auto;
-  text-align: right;
-}
-
-.ai {
-  background: #E5E5EA;
-  color: black;
-  margin-right: auto;
-  text-align: left;
-}
-</style> 
+</style>

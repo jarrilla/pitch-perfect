@@ -12,7 +12,6 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
-    "@types/dotenv": "^8.2.3",
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
     "@types/passport": "^1.0.17",
@@ -25,10 +24,12 @@
     "typescript-eslint": "^8.18.0"
   },
   "dependencies": {
+    "@openai/realtime-api-beta": "github:openai/openai-realtime-api-beta",
+    "@types/ws": "^8.5.13",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2",
+    "express": "^5.0.1",
     "express-session": "^1.18.1",
     "mongoose": "^8.8.4",
     "openai": "^4.76.0",
@@ -36,7 +37,8 @@
     "passport-google-oauth20": "^2.0.0",
     "remove-markdown": "^0.5.5",
     "uuid": "^11.0.3",
-    "winston": "^3.17.0"
+    "winston": "^3.17.0",
+    "ws": "^8.18.0"
   },
   "packageManager": "yarn@1.22.22",
   "engines": {

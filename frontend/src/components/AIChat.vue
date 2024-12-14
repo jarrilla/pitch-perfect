@@ -1,175 +1,57 @@
 <script setup lang="ts">
 import { ref, onUnmounted, onMounted } from 'vue'
-import Speaking from './AISpeaking.vue'
-import { chatApi } from '../services/chatApi'
-
-declare global {
-  interface Window {
-    SpeechRecognition: new () => SpeechRecognition;
-    webkitSpeechRecognition: new () => SpeechRecognition;
-  }
-}
-
-interface SpeechRecognitionEvent {
-  results: Array<SpeechRecognitionResult>;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-}
-
-interface SpeechRecognitionErrorEvent {
-  error: string;
-  message?: string;
-}
-
-type SpeechRecognition = {
-  continuous: boolean
-  interimResults: boolean
-  onresult: (event: SpeechRecognitionEvent) => void
-  onend: () => void
-  onerror: (event: SpeechRecognitionErrorEvent) => void
-  start: () => void
-  stop: () => void
-}
 
 interface ChatMessage {
   type: 'user' | 'ai'
   content: string
 }
 
-const props = defineProps<{
-  sessionId: string
-}>()
-
-const isListening = ref(false)
-const transcript = ref('')
 const chatMessages = ref<ChatMessage[]>([])
-const recognition = ref<SpeechRecognition | null>(null)
-const isLoading = ref(false)
-const sessionId = ref(props.sessionId)
-const isAudioPlaying = ref(false)
-const lastSpeechTime = ref(Date.now())
-const silenceTimer = ref<number | null>(null)
-const SILENCE_DURATION = 750 // 750ms of silence
+const mediaRecorder = ref<MediaRecorder | null>(null)
+const ws = ref<WebSocket | null>(null)
+const isRecording = ref(false)
 
-const startListening = () => {
-  if (!recognition.value) {
-    recognition.value = new (window.SpeechRecognition || window.webkitSpeechRecognition)() as SpeechRecognition
-    recognition.value.continuous = true
-    recognition.value.interimResults = true
-    
-    recognition.value.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = '';
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript;
-        }
-      }
-      
-      if (finalTranscript) {
-        transcript.value = finalTranscript;
-        lastSpeechTime.value = Date.now();
-        
-        // Reset silence timer
-        if (silenceTimer.value) {
-          clearTimeout(silenceTimer.value);
-        }
-        
-        // Start new silence timer
-        silenceTimer.value = setTimeout(async () => {
-          if (transcript.value) {
-            await sendMessage(transcript.value);
-            transcript.value = '';
-          }
-        }, SILENCE_DURATION);
-      }
-    }
-
-    recognition.value.onend = () => {
-      // Restart if we're supposed to be listening
-      if (isListening.value) {
-        setTimeout(() => {
-          recognition.value?.start();
-        }, 10);
-      }
-    }
-  }
-
-  recognition.value.start()
-  isListening.value = true
-}
-
-const sendMessage = async (text: string) => {
+const startRecording = async () => {
   try {
-    // Stop and reset recognition
-    if (recognition.value) {
-      recognition.value.stop()
-      recognition.value = null
-    }
-
-    const userMessage: ChatMessage = {
-      type: 'user',
-      content: text,
-    }
-    chatMessages.value.push(userMessage)
-
-    // Create AI message placeholder
-    const aiMessage: ChatMessage = {
-      type: 'ai',
-      content: '',
-    }
-
-    // Start streaming
-    const eventSource = chatApi.streamMessage(text)
-
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.done) {
-        eventSource.close();
-        chatMessages.value.push(aiMessage);
-        transcript.value = '';
-        // Restart recognition after response
-        startListening();
-        return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    mediaRecorder.value = new MediaRecorder(stream)
+    
+    ws.value = new WebSocket(`${import.meta.env.VITE_WS_URL}/audio-stream`)
+    
+    ws.value.onmessage = (event) => {
+      const data = JSON.parse(event.data)
+      if (data.content) {
+        chatMessages.value.push({
+          type: 'ai',
+          content: data.content
+        })
       }
-
-      aiMessage.content += data.content;
     }
 
-    eventSource.onerror = () => {
-      eventSource.close()
-      startListening() // Ensure we restart on error too
+    mediaRecorder.value.ondataavailable = (event) => {
+      if (event.data.size > 0 && ws.value?.readyState === WebSocket.OPEN) {
+        ws.value.send(event.data)
+      }
     }
+
+    mediaRecorder.value.start(100)
+    isRecording.value = true
 
   } catch (error) {
-    console.error('Error:', error)
-    chatMessages.value.push({
-      type: 'ai',
-      content: 'Sorry, there was an error processing your request.'
-    })
-    startListening() // Ensure we restart on error
+    console.error('Error starting recording:', error)
   }
 }
 
-// Start listening when component mounts
 onMounted(() => {
-  startListening()
+  startRecording()
 })
 
-// Clean up
 onUnmounted(() => {
-  if (silenceTimer.value) {
-    clearTimeout(silenceTimer.value)
+  if (mediaRecorder.value && isRecording.value) {
+    mediaRecorder.value.stop()
   }
-  if (recognition.value) {
-    recognition.value.stop()
+  if (ws.value) {
+    ws.value.close()
   }
 })
 </script>
@@ -185,26 +67,10 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-    
-    <div class="transcript" v-if="transcript">
-      {{ transcript }}
-    </div>
   </div>
 </template>
 
 <style scoped>
-.speaking-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  width: 100%;
-  position: absolute;
-  z-index: 1;
-  top: 0;
-  left: 0;
-}
-
 .chat-container {
   max-width: 800px;
   margin: 0 auto;
@@ -244,32 +110,5 @@ onUnmounted(() => {
   color: black;
   margin-right: auto;
   text-align: left;
-}
-
-.input-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-button {
-  padding: 15px 30px;
-  border-radius: 25px;
-  border: none;
-  background: #007AFF;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-button.active {
-  background: #FF3B30;
-  transform: scale(1.1);
-}
-
-.transcript {
-  font-style: italic;
-  color: #666;
 }
 </style> 

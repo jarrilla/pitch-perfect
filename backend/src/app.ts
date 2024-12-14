@@ -7,30 +7,29 @@ import logger from './config/logger';
 import chatRoutes from './routes/chatRoutes';
 import authRoutes from './auth/google';
 import { connectDB } from './config/database';
+import OpenAIRelayServer from './lib/OpenAIRelayServer';
 
 const app = express();
-app.set('trust proxy', 1);
+
 
 // Connect to MongoDB
 connectDB().catch((err) => logger.error('MongoDB connection error:', err));
 
-// Basic middleware
+// Scaffold express app
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// CORS configuration must come BEFORE session middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Session configuration before CORS
+// Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET!,
   resave: true,
   saveUninitialized: false,
-  name: 'sessionId',
+  name: 'ppauth',
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
@@ -47,17 +46,12 @@ app.use(passport.session());
 app.use('/auth', authRoutes);
 app.use('/chat', chatRoutes);
 
-app.get('/test-cookie', (req, res) => {
-  res.cookie('test-cookie', 'hello', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  });
-  res.json({ message: 'Cookie set!' });
-});
-
-app.listen(config.port, () => {
-  logger.info(`Server running on port ${config.port}`);
-});
+// Relay server for OpenAI Realtime API & Express app
+const port = Number(config.port);
+const openAiRelayServer = new OpenAIRelayServer(app);
+openAiRelayServer.listen(
+  port,
+  () => logger.info(`Server listening on port ${port}`)
+);
 
 export default app;

@@ -13,7 +13,8 @@
   "dependencies": {
     "axios": "^1.7.9",
     "vue": "^3.5.13",
-    "vue-router": "^4.5.0"
+    "vue-router": "^4.5.0",
+    "@openai/realtime-api-beta": "github:jarrilla/openai-realtime-api-beta"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",

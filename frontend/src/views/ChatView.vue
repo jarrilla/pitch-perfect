@@ -21,7 +21,7 @@ const handleSessionStarted = (sessionId: string) => {
 </script>
 
 <template>
-  <div class="chat-container">
+  <div id="chat-view">
     <InitialPrompt 
       v-if="!sessionStarted"
       @session-started="handleSessionStarted"
@@ -34,8 +34,13 @@ const handleSessionStarted = (sessionId: string) => {
 </template>
 
 <style scoped>
-.chat-container {
-  height: 100vh;
+#chat-view {
+  height: 100%;
   width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-flow: column;
+  justify-content: center;
+  align-items: center;
 }
 </style> 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RealtimeClient } from '@openai/realtime-api-beta'
-// @ts-ignore
 import { WavRecorder, WavStreamPlayer } from '../lib/wavtools'
 import { ItemType } from '@openai/realtime-api-beta/dist/lib/client.js';
 
@@ -30,13 +29,13 @@ interface RealtimeEvent {
   event: { [key: string]: any };
 }
 
-const wavRecorder = ref<WavRecorder | null>(
+const WAV_RECORDER = ref<WavRecorder | null>(
   new WavRecorder({ sampleRate: 24000 })
 );
-const wavStreamPlayer = ref<WavStreamPlayer | null>(
+const WAV_STREAM_PLAYER = ref<WavStreamPlayer | null>(
   new WavStreamPlayer({ sampleRate: 24000 })
 );
-const realtimeClient = ref<RealtimeClient | null>(
+const OPENAI_CLIENT = ref<RealtimeClient | null>(
   new RealtimeClient({
     url: `${import.meta.env.VITE_API_BASE_URL}/stream`,
   })
@@ -48,11 +47,13 @@ const realtimeEvents = ref<RealtimeEvent[]>([]);
 
 
 onMounted(async () => {
-  const client = realtimeClient.value!;
+  const client = OPENAI_CLIENT.value!;
+  const wavRecorder = WAV_RECORDER.value!;
+  const wavStreamPlayer = WAV_STREAM_PLAYER.value!;
 
   await client.connect();
-  await wavRecorder.value.begin();
-  await wavStreamPlayer.value.connect();
+  await wavRecorder.begin();
+  await wavStreamPlayer.connect();
 
   client.sendUserMessageContent([
     {
@@ -61,9 +62,11 @@ onMounted(async () => {
     }
   ]);
 
-  client.updateSession({ instructions });
-  client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
-  client.updateSession({ turn_detection: { type: 'server_vad', threshold: 0.5 } });
+  client.updateSession({
+    instructions,
+    input_audio_transcription: { model: 'whisper-1' },
+    turn_detection: { type: 'server_vad', threshold: 0.5 },
+  });
 
   client.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
     const lastEvent = realtimeEvents.value[realtimeEvents.value.length - 1];
@@ -74,19 +77,21 @@ onMounted(async () => {
       realtimeEvents.value.push(realtimeEvent);
     }
   });
-  client.on('error', (event: any) => console.error(event));
+
+  client.on('error', (event: unknown) => console.error(event));
   client.on('conversation.interrupted', async () => {
-    const trackSampleOffset = await wavStreamPlayer.value.interrupt();
+    const trackSampleOffset = await wavStreamPlayer.interrupt();
     if (trackSampleOffset?.trackId) {
       const { trackId, offset } = trackSampleOffset;
       client.cancelResponse(trackId, offset);
     }
   });
-  client.on('conversation.updated', async ({ item, delta }: any) => {
+  client.on('conversation.updated', async (event: any) => {
+    const { item, delta } = event;
     const items = client.conversation.getItems();
 
     if (delta?.audio) {
-      wavStreamPlayer.value.add16BitPCM(delta.audio, item.id);
+      wavStreamPlayer.add16BitPCM(delta.audio, item.id);
     }
     if (item.status === 'completed' && item.formatted.audio?.length) {
       const wavFile = await WavRecorder.decode(
@@ -100,9 +105,8 @@ onMounted(async () => {
   });
 
   chatItems.value = client.conversation.getItems();
-
   
-  await wavRecorder.value.record((data: any) => client.appendInputAudio(data.mono));
+  await wavRecorder.record((data: unknown) => client.appendInputAudio(data.mono));
 });
 
 onUnmounted(() => {
@@ -116,6 +120,8 @@ onUnmounted(() => {
       <div
         v-for="message in chatItems"
         :key="message.id"
+        class="message"
+        :class="{ 'assistant': message.role === 'assistant', 'user': message.role === 'user' }"
       >
         {{ message.formatted.text || message.formatted.transcript }}
       </div>
@@ -124,5 +130,37 @@ onUnmounted(() => {
 </template>
 
 <style>
+#chat-room {
+  box-sizing: border-box;
+  height: calc(100% - 5rem);
+  width: 50%;
+  max-width: 40rem;
+  
+  border: 2px solid black;
+  border-radius: 4px;
+  background-color: whitesmoke;
+  padding: 1rem;
 
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.message {
+  margin: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.75rem;
+  width: fit-content;
+  font-size: 1.25rem;
+}
+
+.message.user {
+  background-color: royalblue;
+  color: white;
+  margin-left: auto;
+}
+
+.message.assistant {
+  background-color: gainsboro;
+}
 </style>

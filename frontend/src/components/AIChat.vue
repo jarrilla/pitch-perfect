@@ -36,38 +36,36 @@ const wavRecorder = ref<WavRecorder | null>(
 const wavStreamPlayer = ref<WavStreamPlayer | null>(
   new WavStreamPlayer({ sampleRate: 24000 })
 );
-const client = ref<RealtimeClient | null>(
-  new RealtimeClient({ url: `${import.meta.env.VITE_API_BASE_URL}/stream` })
+const realtimeClient = ref<RealtimeClient | null>(
+  new RealtimeClient({
+    url: `${import.meta.env.VITE_API_BASE_URL}/stream`,
+  })
 );
+
 
 const chatItems = ref<ItemType[]>([]);
 const realtimeEvents = ref<RealtimeEvent[]>([]);
 
 
 onMounted(async () => {
-  client.value = new RealtimeClient({
-    url: `${import.meta.env.VITE_API_BASE_URL}/stream`,
-  });
+  const client = realtimeClient.value!;
 
+  await client.connect();
   await wavRecorder.value.begin();
   await wavStreamPlayer.value.connect();
-  await client.value.connect();
 
-  // client.value!.sendUserMessageContent([
-  //   {
-  //     type: 'input_text',
-  //     text: 'For testing purposes, I want you to list ten car brands.'
-  //   }
-  // ]);
+  client.sendUserMessageContent([
+    {
+      type: 'input_text',
+      text: 'Hello.'
+    }
+  ]);
 
-  if (client.value.getTurnDetectionType() == 'server_vad') {
-    await wavRecorder.value.record((data: any) => client.value?.appendInputAudio(data));
-  }
+  client.updateSession({ instructions });
+  client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
+  client.updateSession({ turn_detection: { type: 'server_vad', threshold: 0.5 } });
 
-  client.value.updateSession({ instructions });
-  client.value.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
-
-  client.value.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
+  client.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
     const lastEvent = realtimeEvents.value[realtimeEvents.value.length - 1];
     if (lastEvent?.event.type === realtimeEvent.event.type) {
       lastEvent.count = (lastEvent.count || 0) + 1;
@@ -76,20 +74,21 @@ onMounted(async () => {
       realtimeEvents.value.push(realtimeEvent);
     }
   });
-  client.value.on('error', (event: any) => console.error(event));
-  client.value.on('conversation.interrupted', async () => {
+  client.on('error', (event: any) => console.error(event));
+  client.on('conversation.interrupted', async () => {
     const trackSampleOffset = await wavStreamPlayer.value.interrupt();
     if (trackSampleOffset?.trackId) {
       const { trackId, offset } = trackSampleOffset;
-      client.value?.cancelResponse(trackId, offset);
+      client.cancelResponse(trackId, offset);
     }
   });
-  client.value.on('conversation.updated', async ({ item, delta }: any) => {
-    const items = client.value?.conversation.getItems();
+  client.on('conversation.updated', async ({ item, delta }: any) => {
+    const items = client.conversation.getItems();
+
     if (delta?.audio) {
       wavStreamPlayer.value.add16BitPCM(delta.audio, item.id);
     }
-    if (item.status === 'completed' && item.fomatted.audio?.length) {
+    if (item.status === 'completed' && item.formatted.audio?.length) {
       const wavFile = await WavRecorder.decode(
         item.formatted.audio,
         24000,
@@ -100,7 +99,10 @@ onMounted(async () => {
     chatItems.value = items || [];
   });
 
-  chatItems.value = client.value.conversation.getItems();
+  chatItems.value = client.conversation.getItems();
+
+  
+  await wavRecorder.value.record((data: any) => client.appendInputAudio(data.mono));
 });
 
 onUnmounted(() => {
@@ -115,7 +117,7 @@ onUnmounted(() => {
         v-for="message in chatItems"
         :key="message.id"
       >
-        {{ message.formatted.text }}
+        {{ message.formatted.text || message.formatted.transcript }}
       </div>
     </div>
   </div>

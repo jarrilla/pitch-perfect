@@ -75,7 +75,7 @@ class OpenAIRelayServer {
 
     // Enqueue messages while still connecting
     ws.on('message', (data) => {
-      if (!client.isConnected) {
+      if (!client.isConnected()) {
         messageQueue.push(data);
       }
       else {

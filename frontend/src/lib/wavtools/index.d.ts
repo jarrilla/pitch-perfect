@@ -2,6 +2,7 @@ export class WavRecorder {
   constructor(options: { sampleRate: number });
   begin(): Promise<void>;
   record(callback: (data: { mono: ArrayBuffer }) => void): Promise<void>;
+  pause(): Promise<void>;
   static decode(audio: ArrayBuffer, sampleRate: number, targetSampleRate: number): Promise<ArrayBuffer>;
 }
 
